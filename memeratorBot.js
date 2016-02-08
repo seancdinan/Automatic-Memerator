@@ -25,10 +25,10 @@ var Twit = require('twit');
 
 //Time to authenticate
 var T = new Twit({
-	consumer_key:    '',
-	consumer_secret: '',
-	access_token:    '',
-	access_token_secret: ''
+  consumer_key:    'consumer_key_goes_here',
+  consumer_secret: 'consumer_secret_goes_here',
+  access_token:    'access_token_goes_here',
+  access_token_secret: 'access_token_secret_goes_here'
 })
 
 //Let's make a test post... IT WORKS!!!!
@@ -38,10 +38,21 @@ var T = new Twit({
 // 	})
 
 //Let's try doing a search...
-T.get('search/tweets',{q:'when%20ur%20AND%20so%20OR%20but',result_type:'recent',count:5},
-	function(err, data, response) {
-		console.log(data)
-	})
+function getTweets(amount) {
+	var tweets = [];
+	T.get('search/tweets',{q:'when%20ur%20AND%20so%20OR%20but',result_type:'recent',count:amount},
+		function(err, data, response) {
+			if (!err) {
+				for (var i = 0; i < data["statuses"].length; i++) {
+				tweets[i] = data["statuses"][i]["text"];
+				}
+				console.log(tweets);
+			}
+			else console.log('There was an error getting ur tweets :(');
+		});
+}
+getTweets(5);
+
 
 
 

@@ -1,0 +1,4 @@
+var reactionOptions = ['0fEG1Pj.jpg', '2T2xdBi.gif', '4tSVOgW.jpg', '5FK2eOV.gif', '7x1kj38.jpg', '9fQ6aQr.jpg', 'AMUP4BD.jpg', 'B8W5Udh.jpg', 'bCPxTzz.png', 'bxC0kPk.jpg', 'ByAvhcy.jpg', 'CcWuDlz.jpg', 'dMsgBWB.png', 'hg644Px.jpg', 'hggw7ry.gif', 'k6jghhK.jpg', 'kvRFrbY.jpg', 'LaN9PKf.jpg', 'latest.png', 'LRODFuA.jpg', 'lsH7RgA.png', 'm2O5syQ.gif', 'mILqyay.gif', 'oCTkclE.jpg', 'sJGDOQ2.png', 'SyZgyfU.gif', 'TTXuoow.jpg', 'Uy4GEcr.gif', 'VNuFhcc.jpg', 'ydYneRK.png', 'yEVNICP.png', 'YOBXjtd.jpg', 'you_are_wrong.png', 'ZSiqurh.gif', 'zxjacU8.png'];
+
+if (typeof module != "undefined" && module.exports)
+module.exports = reactionOptions;
