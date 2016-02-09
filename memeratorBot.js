@@ -18,7 +18,7 @@
 // var coordConj = ['and','but','yet','so'];
 // console.log(phrase1[0]+coordConj[Math.floor(Math.random()*coordConj.length)] +phrase1[1]);
 
-// Require & Authenticate w/ Twit, load up the reaction image database
+// Require & Authenticate w/ Twit, load up the reaction image database, require Cron to time tweet sends
 var Twit = require('twit');
 var T = new Twit({
   consumer_key:    'consumer_key_goes_here',
@@ -28,6 +28,7 @@ var T = new Twit({
 })
 var rxnOptions = require('./reactionOptions.js');
 var fs = require('fs');
+var CronJob = require('cron').CronJob;
 
 // Have some test phrases to play around with
 testPhrases = ['@SomeHandle When ur hungry-af but - every restaurant is closed.',
@@ -91,6 +92,7 @@ function getSecondPhrase(inputArray, firstLength) {
 				temp[n] = inputArray[i][index];
 				index++;
 			}
+			if (temp[0] != undefined) {temp[0] = temp[0].toLowerCase();};
 			options[i] = temp.join('');
 		}
 	}
@@ -145,7 +147,8 @@ function fireMeme(searchAmt) {
 							var b64content = fs.readFileSync(img, {encoding: 'base64'})
 
 							// Make the post
-							if (secondPick != undefined && (140 - tweetText.length) >= 23) {
+							if (secondPick == undefined || secondPick == null || secondPick == '') {console.log('No second pick.');}
+							if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) >= 23) {
 								T.post('media/upload',{media_data: b64content},
 									function(err, data, response) {
 										var mediaIdStr = data.media_id_string;
@@ -155,10 +158,10 @@ function fireMeme(searchAmt) {
 										})
 									})
 							}
-							else if (secondPick != undefined && (140 - tweetText.length) < 23) {
+							else if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) < 23) {
 								T.post('statuses/update', {status: tweetText}, function (err, data, response){console.log(data['text']);})
 							}
-							else console.log('Tweet exceeds 140 characters');
+							else console.log('Tweet exceeds 140 characters\n*****************************************************');
 						}
 						else console.log('There was an error getting the 2nd half of the tweet');
 				});	
@@ -167,8 +170,17 @@ function fireMeme(searchAmt) {
 		}); 
 }
 
-fireMeme(50);
-
+// Run every x number of seconds.
+// Use ctrl-c to stop process in terminal
+//setInterval(fireMeme(75), 15000);
+setInterval(function() {
+	try {
+		fireMeme(95);
+	}
+	catch (e) {
+		console.log(e);
+	}
+}, 60000);
 
 
 
