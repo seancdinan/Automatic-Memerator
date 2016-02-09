@@ -78,22 +78,28 @@ function getFirstPhrase(inputArray) {
 	}	
 }
 // Same purpose as getFirstPhrase, but for the second half of the tweet
-function getSecondPhrase(inputArray) {
-	var options = [], selection;
+function getSecondPhrase(inputArray, firstLength) {
+	var options = [], selection, startIndex;
 	for (var i = 0; i < inputArray.length; i++) {
 		var endIndex, temp = [];
 		if (inputArray[i].indexOf(' - ') != -1) {
 			endIndex = inputArray[i].indexOf(' - ');
-			for (var n = 0; n < endIndex; n++) {
-				temp[n] = inputArray[i][n];
+			if (inputArray[i].indexOf(':') != -1) {startIndex = inputArray[i].indexOf(':') + 2;}
+			else startIndex = 0;
+			var index = startIndex;
+			for (var n = 0; n < (endIndex - startIndex); n++) {
+				temp[n] = inputArray[i][index];
+				index++;
 			}
-			options[i] = temp;
+			options[i] = temp.join('');
 		}
 	}
-	var success = false;
-	while (sucess == false) {
+
+	for (var k = 0; k < options.length; k++){
 		selection = Math.floor(Math.random() * (options.length));
-		if (options[selection] != undefined) {return options[selection]; success = true;}
+		if (options[selection] != undefined && (options[selection].length + firstLength) <= 140) {
+			return options[selection];
+		}
 	}
 }
 // From an array of file names, picks a random image.
@@ -107,50 +113,62 @@ function compileParts(input1, input2) {
 	var result = [input1, input2].join(' ');
 	return result;
 }
-// Pulls 'amount' number of tweets from Twitter, compiles them into an array, then inputs that array to the callback function
-function getFirstTweets(amount, callback) {
-	var tweets = [];
-	T.get('search/tweets',{q:'when%20ur%20AND%20so%20OR%20but', result_type:'recent', count:amount},
+
+function fireMeme(searchAmt) {
+	var firstTweets = [], secondTweets = [];
+
+	// Get the 1st phrase
+	T.get('search/tweets',{q:'when%20ur%20AND%20so%20OR%20but', result_type:'recent', count:searchAmt},
 		function(err, data, response) {
 			if (!err) {
-				for (var i = 0; i < data["statuses"].length; i++) {tweets[i] = data["statuses"][i]["text"];}
-				var firstPick = getFirstPhrase(tweets);
-				callback(amount, firstPick, fireMeme());
-			}
-			else console.log('There was an error getting ur tweets :(');
-		});
-}
-function getSecondTweets(amount, firstHalf, callback) {
-	var tweets = [];
-	T.get('statuses/user_timeline',{screen_name:'BreakingNews', count:amount},
-		function(err, data, response) {
-			if (!err) {
-				for (var i = 0; i < data.length; i++) {tweets[i] = data[i]["text"];}
-				callback(tweets);
-			}
-			else console.log('There was an error getting ur tweets :(');
-		});	
-}
-// fireMeme makes the post. Should be the final callback.
-function fireMeme(input) {
-	// Pick a random image
-	var img = getImage(rxnOptions, './reactions/');
-	var b64content = fs.readFileSync(img, {encoding: 'base64'})
+				for (var i = 0; i < data["statuses"].length; i++) {firstTweets[i] = data["statuses"][i]["text"];}
+				var firstPick = getFirstPhrase(firstTweets);
+				console.log(firstPick);
 
-	//Make the post
-	T.post('media/upload',{media_data: b64content},
-		function(err, data, response) {
-			var mediaIdStr = data.media_id_string;
-			var params = {status: input, media_ids: [mediaIdStr]};
-		T.post('statuses/update', params, function (err, data, response) {
-			console.log(data);
-			})
-		})
+				// Get the second phrase
+				T.get('statuses/user_timeline',{screen_name:'BreakingNews', count:searchAmt},
+					function(err, data, response) {
+						if (!err) {
+							for (var i = 0; i < data.length; i++) {secondTweets[i] = data[i]["text"];}
+							for (var i = 0; i < secondTweets.length; i++) {
+								var secondPickTry = getSecondPhrase(secondTweets, firstPick.length);
+								if (secondPickTry != undefined && (secondPickTry.length + firstPick.length) <= 140) {
+									var secondPick = secondPickTry;
+								}
+								else var secondPick = undefined;
+							}
+							console.log(secondPick);
+							// Combine them together
+							var tweetText = compileParts(firstPick, secondPick);
+							// Pick a random image
+							var img = getImage(rxnOptions, './reactions/'); console.log(img);
+							var b64content = fs.readFileSync(img, {encoding: 'base64'})
+
+							// Make the post
+							if (secondPick != undefined && (140 - tweetText.length) >= 23) {
+								T.post('media/upload',{media_data: b64content},
+									function(err, data, response) {
+										var mediaIdStr = data.media_id_string;
+										var params = {status: tweetText, media_ids: [mediaIdStr]};
+									T.post('statuses/update', params, function (err, data, response) {
+										console.log(data['text']);
+										})
+									})
+							}
+							else if (secondPick != undefined && (140 - tweetText.length) < 23) {
+								T.post('statuses/update', {status: tweetText}, function (err, data, response){console.log(data['text']);})
+							}
+							else console.log('Tweet exceeds 140 characters');
+						}
+						else console.log('There was an error getting the 2nd half of the tweet');
+				});	
+			}
+			else console.log('There was an error getting the 1st half of the tweet');
+		}); 
 }
 
-// fireMeme should be the callback to getSecondTweets, which should be the callback for getFirstTweets
-var numberOfTweets = 5;
-getFirstTweets(numberOfTweets, getSecondTweets(numberOfTweets, fireMeme()))
+fireMeme(50);
+
 
 
 
