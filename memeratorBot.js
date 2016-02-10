@@ -29,6 +29,8 @@ var T = new Twit({
 var rxnOptions = require('./reactionOptions.js');
 var fs = require('fs');
 var CronJob = require('cron').CronJob;
+var request = require('request')
+
 
 // Have some test phrases to play around with
 testPhrases = ['@SomeHandle When ur hungry-af but - every restaurant is closed.',
@@ -96,7 +98,6 @@ function getSecondPhrase(inputArray, firstLength) {
 			options[i] = temp.join('');
 		}
 	}
-
 	for (var k = 0; k < options.length; k++){
 		selection = Math.floor(Math.random() * (options.length));
 		if (options[selection] != undefined && (options[selection].length + firstLength) <= 140) {
@@ -104,6 +105,22 @@ function getSecondPhrase(inputArray, firstLength) {
 		}
 	}
 }
+
+function getRedditPhrase(inputArray, firstLength) {
+	var options = [], selection;
+	for (var i = 0; i < inputArray.length; i++) {
+		if (inputArray[i].length + firstLength <= 140) {
+			options[i] = inputArray[i];
+		}
+	}
+	for (var i = 0; i < options.length; i++) {
+		selection = Math.floor(Math.random() * options.length);
+		if (options[selection] != undefined)
+			return options[selection];
+	}
+}
+
+
 // From an array of file names, picks a random image.
 function getImage(inputArray, filepath) {
 	var selection = inputArray[Math.floor(Math.random() * inputArray.length)];
@@ -117,62 +134,52 @@ function compileParts(input1, input2) {
 }
 
 function fireMeme(searchAmt) {
-	var firstTweets = [], secondTweets = [];
+	var firstTweets = [], secondTweets = [], redditNews = [];
 
 	// Get the 1st phrase
-	T.get('search/tweets',{q:'when%20ur%20AND%20so%20OR%20but', result_type:'recent', count:searchAmt},
+	T.get('search/tweets',{q:'when%20ur%20and%20but', result_type:'recent', count:searchAmt},
 		function(err, data, response) {
 			if (!err) {
 				for (var i = 0; i < data["statuses"].length; i++) {firstTweets[i] = data["statuses"][i]["text"];}
 				var firstPick = getFirstPhrase(firstTweets);
 				console.log(firstPick);
+				// Get the second phrase from reddit/news/hot/
+				request({url: 'https://www.reddit.com/r/news+worldnews+USANews+WorldEvents+Worldpolitics/hot/.json?count=100', json: true}, function(error, response, body) {
+					for (var i = 0; i < body["data"]["children"].length; i++) {redditNews[i] = body["data"]["children"][i]["data"]["title"];}
+					var secondPick = getRedditPhrase(redditNews, firstPick.length);
+					secondPick[0] = secondPick[0].toLowerCase();
+					console.log(secondPick);
+					// Combine them together
+					var tweetText = compileParts(firstPick, secondPick);
+						// Pick a random image
+						var img = getImage(rxnOptions, './reactions/'); console.log(img);
+						var b64content = fs.readFileSync(img, {encoding: 'base64'})
 
-				// Get the second phrase
-				T.get('statuses/user_timeline',{screen_name:'BreakingNews', count:searchAmt},
-					function(err, data, response) {
-						if (!err) {
-							for (var i = 0; i < data.length; i++) {secondTweets[i] = data[i]["text"];}
-							for (var i = 0; i < secondTweets.length; i++) {
-								var secondPickTry = getSecondPhrase(secondTweets, firstPick.length);
-								if (secondPickTry != undefined && (secondPickTry.length + firstPick.length) <= 140) {
-									var secondPick = secondPickTry;
-								}
-								else var secondPick = undefined;
-							}
-							console.log(secondPick);
-							// Combine them together
-							var tweetText = compileParts(firstPick, secondPick);
-							// Pick a random image
-							var img = getImage(rxnOptions, './reactions/'); console.log(img);
-							var b64content = fs.readFileSync(img, {encoding: 'base64'})
-
-							// Make the post
-							if (secondPick == undefined || secondPick == null || secondPick == '') {console.log('No second pick.');}
-							if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) >= 23) {
-								T.post('media/upload',{media_data: b64content},
-									function(err, data, response) {
-										var mediaIdStr = data.media_id_string;
-										var params = {status: tweetText, media_ids: [mediaIdStr]};
-									T.post('statuses/update', params, function (err, data, response) {
-										console.log(data['text']);
-										})
+						//Make the post
+						if (secondPick == undefined || secondPick == null || secondPick == '') {console.log('No second pick.');}
+						if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) >= 23) {
+							T.post('media/upload',{media_data: b64content},
+								function(err, data, response) {
+									var mediaIdStr = data.media_id_string;
+									var params = {status: tweetText, media_ids: [mediaIdStr]};
+								T.post('statuses/update', params, function (err, data, response) {
+									console.log(data['text']);
 									})
-							}
-							else if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) < 23) {
-								T.post('statuses/update', {status: tweetText}, function (err, data, response){console.log(data['text']);})
-							}
-							else console.log('Tweet exceeds 140 characters\n*****************************************************');
+								})
 						}
-						else console.log('There was an error getting the 2nd half of the tweet');
-				});	
+						else if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) < 23) {
+							T.post('statuses/update', {status: tweetText}, function (err, data, response){console.log(data['text']);})
+						}
+						else console.log('Tweet exceeds 140 characters\n*****************************************************');
+				})	
 			}
 			else console.log('There was an error getting the 1st half of the tweet');
-		}); 
+		}) 
 }
 
 // Run every x number of seconds.
 // Use ctrl-c to stop process in terminal
-//setInterval(fireMeme(75), 15000);
+
 setInterval(function() {
 	try {
 		fireMeme(95);
@@ -180,7 +187,7 @@ setInterval(function() {
 	catch (e) {
 		console.log(e);
 	}
-}, 60000);
+}, 120000);
 
 
 
