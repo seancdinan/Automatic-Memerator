@@ -21,15 +21,15 @@
 // Require & Authenticate w/ Twit, load up the reaction image database, require Cron to time tweet sends
 var Twit = require('twit');
 var T = new Twit({
-  consumer_key:    'consumer_key_goes_here',
-  consumer_secret: 'consumer_secret_goes_here',
-  access_token:    'access_token_goes_here',
-  access_token_secret: 'access_token_secret_goes_here'
+ consumer_key:    'consumer_key_goes_here',
+ consumer_secret: 'consumer_secret_goes_here',
+ access_token:    'access_token_goes_here',
+ access_token_secret: 'access_token_secret_goes_here'
 })
 var rxnOptions = require('./reactionOptions.js');
 var fs = require('fs');
 var CronJob = require('cron').CronJob;
-var request = require('request')
+var request = require('request');
 
 
 // Have some test phrases to play around with
@@ -39,9 +39,29 @@ testPhrases = ['@SomeHandle When ur hungry-af but - every restaurant is closed.'
 							'and this one might break when it comes to it',
 							'and this one is the real test when its tricky but it works'];
 
+var previousFirstPhrase;
+
+
+function removeRepeats(array) {
+	var filteredArray = [array[0]];
+	var filterIndex = 1;
+	var alreadyExists;
+	for (var i = 1; i < array.length; i++) {
+		for (var k = 0; k < filteredArray.length; k++) {
+			if (array[i] == filteredArray[k]) {alreadyExists = true; break}
+			else alreadyExists = false	
+		}
+		if (alreadyExists == false) {
+			filteredArray[filterIndex] = array[i];
+			filterIndex++;
+		}
+	}
+	return filteredArray;
+}
+
 // Takes a list of options, filters out the bad ones, and outputs a random choice
 function getFirstPhrase(inputArray) {
-	var options = [], testHolder = [], selection;
+	var options = [], testHolder = [], selection, decision;
 	// Go thru each element of inputArray, if a matching phrase is found, store it in the options array.
 	for (var i = 0; i < inputArray.length; i++) {
 		var whenIndex, andButIndex, temp = [], hasWhen = false, hasAndBut = false;
@@ -73,38 +93,19 @@ function getFirstPhrase(inputArray) {
 			options[i] = temp.join(' ');
 		}
 	}
+	//console.log(options);
 	// Make a random selection from the options and return it as a string
-	var success = false;
-	while(success == false) {
-		selection = Math.floor(Math.random() * (options.length));
-		if (options[selection] != undefined) {return options[selection]; success = true;}
-	}	
-}
-// Same purpose as getFirstPhrase, but for the second half of the tweet
-function getSecondPhrase(inputArray, firstLength) {
-	var options = [], selection, startIndex;
-	for (var i = 0; i < inputArray.length; i++) {
-		var endIndex, temp = [];
-		if (inputArray[i].indexOf(' - ') != -1) {
-			endIndex = inputArray[i].indexOf(' - ');
-			if (inputArray[i].indexOf(':') != -1) {startIndex = inputArray[i].indexOf(':') + 2;}
-			else startIndex = 0;
-			var index = startIndex;
-			for (var n = 0; n < (endIndex - startIndex); n++) {
-				temp[n] = inputArray[i][index];
-				index++;
-			}
-			if (temp[0] != undefined) {temp[0] = temp[0].toLowerCase();};
-			options[i] = temp.join('');
+	var filterIndex = 0;
+	var filteredOptions = removeRepeats(options);
+	for (var i = 0; i < options.length; i++) {
+		if (options[i] != undefined) {
+			filteredOptions[filterIndex] = options[i];
+			filterIndex++;
 		}
 	}
-	for (var k = 0; k < options.length; k++){
-		selection = Math.floor(Math.random() * (options.length));
-		if (options[selection] != undefined && (options[selection].length + firstLength) <= 140) {
-			return options[selection];
-		}
+	selection = Math.floor(Math.random() * filteredOptions.length);
+	return filteredOptions[selection];
 	}
-}
 
 function getRedditPhrase(inputArray, firstLength) {
 	var options = [], selection;
@@ -113,10 +114,11 @@ function getRedditPhrase(inputArray, firstLength) {
 			options[i] = inputArray[i];
 		}
 	}
-	for (var i = 0; i < options.length; i++) {
-		selection = Math.floor(Math.random() * options.length);
-		if (options[selection] != undefined)
-			return options[selection];
+	var filteredOptions = removeRepeats(options);
+	for (var i = 0; i < filteredOptions.length; i++) {
+		selection = Math.floor(Math.random() * filteredOptions.length);
+		if (filteredOptions[selection] != undefined)
+			return filteredOptions[selection];
 	}
 }
 
@@ -145,36 +147,37 @@ function fireMeme(searchAmt) {
 				console.log(firstPick);
 				// Get the second phrase from reddit/news/hot/
 				request({url: 'https://www.reddit.com/r/news+worldnews+USANews+WorldEvents+Worldpolitics/hot/.json?count=100', json: true}, function(error, response, body) {
+
 					for (var i = 0; i < body["data"]["children"].length; i++) {redditNews[i] = body["data"]["children"][i]["data"]["title"];}
 					var secondPick = getRedditPhrase(redditNews, firstPick.length);
 					secondPick[0] = secondPick[0].toLowerCase();
 					console.log(secondPick);
 					// Combine them together
 					var tweetText = compileParts(firstPick, secondPick);
-						// Pick a random image
-						var img = getImage(rxnOptions, './reactions/'); console.log(img);
-						var b64content = fs.readFileSync(img, {encoding: 'base64'})
+					// Pick a random image
+					var img = getImage(rxnOptions, './reactions/'); console.log(img);
+					var b64content = fs.readFileSync(img, {encoding: 'base64'})
 
-						//Make the post
-						if (secondPick == undefined || secondPick == null || secondPick == '') {console.log('No second pick.');}
-						if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) >= 23) {
-							T.post('media/upload',{media_data: b64content},
-								function(err, data, response) {
-									var mediaIdStr = data.media_id_string;
-									var params = {status: tweetText, media_ids: [mediaIdStr]};
-								T.post('statuses/update', params, function (err, data, response) {
-									console.log(data['text']);
-									})
+					//Make the post
+					if (secondPick == undefined || secondPick == null || secondPick == '') {console.log('No second pick.');}
+					if (firstPick != undefined && firstPick != null && secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) >= 23) {
+						T.post('media/upload',{media_data: b64content},
+							function(err, data, response) {
+								var mediaIdStr = data.media_id_string;
+								var params = {status: tweetText, media_ids: [mediaIdStr]};
+							T.post('statuses/update', params, function (err, data, response) {
+								console.log(data['text']);
 								})
-						}
-						else if (secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) < 23) {
-							T.post('statuses/update', {status: tweetText}, function (err, data, response){console.log(data['text']);})
-						}
-						else console.log('Tweet exceeds 140 characters\n*****************************************************');
+							})
+					}
+					else if (firstPick != undefined && firstPick != null && secondPick != undefined && secondPick != null && secondPick != '' && (140 - tweetText.length) < 23) {
+						T.post('statuses/update', {status: tweetText}, function (err, data, response){console.log(data['text']);})
+					}
+					else console.log('Tweet exceeds 140 characters\n*****************************************************');
 				})	
 			}
 			else console.log('There was an error getting the 1st half of the tweet');
-		}) 
+			}) 
 }
 
 // Run every x number of seconds.
@@ -187,7 +190,7 @@ setInterval(function() {
 	catch (e) {
 		console.log(e);
 	}
-}, 120000);
+}, 300000);
 
 
 
