@@ -9,11 +9,11 @@
 * Practice creating functions that achieve a goal effectively
 
 ## Premise:
-1. Create an array of tweets containing "When, ur, but, and"
+1. Create an array of tweets returned from a search request containing "When, ur, but, and"
   * e.g. "when ppl make plans and ur standing right next to them but they don't invite u"
 2. Create an array of tweet stems starting at "when" and ending at "and" or "but", then pick a random one
   * e.g. "when ppl make plans and"
-3. Create an array of news headlines plucked from a bunch of news subreddits, then pick a random one
+3. Create an array of news headlines returned from a search request to a bunch of news subreddits, then pick a random one
 4. Format the headline to adjust for capitilization
 5. If the total length of the tweet stem + news headline is less than 117 chars, also pick a random reaction gif from a small database
 6. Send a tweet containing tweet stem + headline (+ image)
